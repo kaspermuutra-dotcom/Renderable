@@ -1,0 +1,110 @@
+<!-- frontend/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D Room Tour MVP</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  #controls label { font-size: 0.85rem; color: #aaa; }
+  #upload { color: #ccc; font-size: 0.85rem; }
+
+  button {
+    padding: 7px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: background 0.2s, opacity 0.2s;
+  }
+
+  #uploadBtn             { background: #2563eb; color: #fff; }
+  #uploadBtn:hover       { background: #1d4ed8; }
+  #processBtn            { background: #16a34a; color: #fff; }
+  #processBtn:disabled   { opacity: 0.4; cursor: not-allowed; }
+  #processBtn:not(:disabled):hover { background: #15803d; }
+
+  #hint {
+    font-size: 0.75rem;
+    color: #555;
+    margin-left: auto;
+  }
+
+  /* ── Canvas wrapper ───────────────────────────────────────────────── */
+  #sceneContainer {
+    display: none;
+    background: #000;
+    position: relative;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 18px auto 0;
+
+    /* Default (laptop) */
+    width: 860px;
+    height: 480px;
+  }
+
+  /* Large desktop */
+  @media (min-width: 1400px) {
+    #sceneContainer { width: 1100px; height: 580px; }
+  }
+
+  /* Small laptop / tablet landscape */
+  @media (max-width: 960px) {
+    #sceneContainer { width: calc(100vw - 32px); height: 420px; }
+  }
+
+  /* Tablet portrait */
+  @media (max-width: 700px) {
+    #sceneContainer { width: calc(100vw - 24px); height: 340px; }
+    #hint { display: none; }
+  }
+
+  /* Mobile */
+  @media (max-width: 480px) {
+    #sceneContainer { height: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <label>MP4 video:</label>
+  <input type="file" id="upload" accept="video/mp4">
+  <button id="uploadBtn">Upload</button>
+  <button id="processBtn" disabled>Process →</button>
+  <span id="hint">Use on-screen arrows or keyboard arrows to look around</span>
+</div>
+
+<div id="sceneContainer"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="/static/script.js"></script>
+
+</body>
+</html>
