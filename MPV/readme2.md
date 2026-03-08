@@ -1,15 +1,3 @@
-py --version
-
-py -m pip install fastapi uvicorn python-multipart
-
-###make sure to use correct intepreter
-ctrl + shift + p 
-Python: Select Interpreter
-
-Choose the recomended
-
-
-py -m uvicorn Backend.main:app --reload
 
 # 3D Room Tour MVP
 
