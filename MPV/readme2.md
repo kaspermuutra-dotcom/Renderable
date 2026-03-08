@@ -16,23 +16,18 @@ py --version
 py -m pip install fastapi uvicorn python-multipart
 py -m uvicorn Backend.main:app --reload
 ```
+Open port [http://127.0.0.1:8000]
 
+
+---
 If you have errors in main.py, then make sure to use correct intepreter:
 
-```
-ctrl + shift + p 
-Python: Select Interpreter
-
-Choose the recommended version
-```
-
-Open port [http://127.0.0.1:8000]
 
 > In VS Code: `Ctrl + Shift + P` → **Python: Select Interpreter** → choose the recommended one before running.
 
 ---
 
-## Use
+## How to use the website:
 
 1. Pick an MP4 → **Upload**
 2. Press **Process →**
