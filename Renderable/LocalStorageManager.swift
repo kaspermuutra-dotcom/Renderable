@@ -41,7 +41,11 @@ struct LocalStorageManager {
             imagePaths: imagePaths,
             device: UIDevice.current.model,
             frameQualities: hasAnyQuality ? qualities : nil,
-            frameHeadings: hasAnyHeading ? headings : nil
+            frameHeadings: hasAnyHeading ? headings : nil,
+            // Stage 3A: persist the capture mode so the record is self-describing.
+            captureMode:      session.captureMode.rawValue,
+            lensFactor:       session.captureMode.lensFactor,
+            targetFrameCount: session.captureMode.targetFrameCount
         )
 
         if let json = try? JSONEncoder().encode(record) {

@@ -1,30 +1,28 @@
 import SwiftUI
 
 struct CaptureSessionView: View {
-    @StateObject private var camera = CameraManager()
-    @StateObject private var captureSession = CaptureSession()
-    @StateObject private var motion = MotionManager()
+    let mode: CaptureMode
+
+    @StateObject private var camera: CameraManager
+    @StateObject private var captureSession: CaptureSession
+    @StateObject private var motion: MotionManager
 
     @State private var showReview = false
     @State private var flash = false
     @State private var warningMessage: String? = nil
     @State private var showWarning = false
 
-    let instructions = [
-        "Face the starting wall — this is your reference point",
-        "Rotate slowly right — keep the last frame partly in view",
-        "Face the right corner",
-        "Continue right along the wall",
-        "Face the back-right corner",
-        "Continue right along the back wall",
-        "Face the back-left corner",
-        "Continue right along the left wall",
-        "Face the left corner",
-        "Final frame — return to face the starting wall"
-    ]
+    /// Default .standard so previews and any existing call site with no argument still compile.
+    init(mode: CaptureMode = .standard) {
+        self.mode = mode
+        _camera         = StateObject(wrappedValue: CameraManager(mode: mode))
+        _captureSession = StateObject(wrappedValue: CaptureSession(mode: mode))
+        _motion         = StateObject(wrappedValue: MotionManager())
+    }
 
     var currentInstruction: String {
-        let i = captureSession.frameCount
+        let i            = captureSession.frameCount
+        let instructions = mode.instructions
         guard i < instructions.count else { return "All frames captured. Review below." }
         return instructions[i]
     }

@@ -51,7 +51,7 @@ struct HomeView: View {
                         .scrollContentBackground(.hidden)
                     }
 
-                    NavigationLink(destination: CaptureSessionView()) {
+                    NavigationLink(destination: CaptureModeView()) {
                         Text("Start Capture")
                             .font(.headline)
                             .frame(maxWidth: .infinity)

@@ -14,17 +14,30 @@ final class CameraManager: NSObject, ObservableObject, AVCapturePhotoCaptureDele
     private let cooldownDuration: TimeInterval = 1.2
     private var cooldownTimer: Timer?
 
-    override init() {
+    /// Selects the preferred rear camera for the given CaptureMode.
+    /// Falls back to the built-in wide-angle camera if the preferred type
+    /// (e.g. ultra-wide) is unavailable on this device.
+    init(mode: CaptureMode = .standard) {
         super.init()
-        setupSession()
+        setupSession(preferring: mode.preferredDeviceType)
     }
 
-    private func setupSession() {
+    private func setupSession(preferring preferredType: AVCaptureDevice.DeviceType) {
         session.beginConfiguration()
         session.sessionPreset = .photo
 
+        // Try the preferred lens first; fall back to wide-angle with a console note.
+        let device: AVCaptureDevice? =
+            AVCaptureDevice.default(preferredType, for: .video, position: .back)
+            ?? {
+                if preferredType != .builtInWideAngleCamera {
+                    print("⚠️ CameraManager: \(preferredType) unavailable — falling back to wide-angle")
+                }
+                return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+            }()
+
         guard
-            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+            let device,
             let input = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(input),
             session.canAddOutput(photoOutput)

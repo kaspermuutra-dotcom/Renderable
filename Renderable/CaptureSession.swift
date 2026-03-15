@@ -15,11 +15,20 @@ struct CapturedFrame: Identifiable {
 }
 
 class CaptureSession: ObservableObject {
-    let sessionID = UUID()
+    let sessionID  = UUID()
+    let captureMode: CaptureMode
+    let targetFrameCount: Int
+
     @Published var frames: [CapturedFrame] = []
 
     var frameCount: Int { frames.count }
-    let targetFrameCount = 10
+
+    /// Default is .standard so any call site that doesn't supply a mode
+    /// (e.g. previews, tests) continues to compile and behave as before.
+    init(mode: CaptureMode = .standard) {
+        self.captureMode     = mode
+        self.targetFrameCount = mode.targetFrameCount
+    }
 
     /// Phase 19: pass quality from FrameQualityChecker.analyze() — defaults to nil for backward compat.
     /// Sprint B: pass heading from MotionManager.currentHeading — defaults to nil for backward compat.

@@ -83,13 +83,18 @@ struct CaptureExporter {
         ]
 
         // ── Write manifest.json ───────────────────────────────────────────────
-        let manifest: [String: Any] = [
+        // Stage 3A fields default to "standard" / 1.0 / frameCount for pre-mode sessions
+        // so the server always receives a complete and consistent manifest.
+        var manifest: [String: Any] = [
             "scan_name":            "Room Capture",
             "created_at":           ISO8601DateFormatter().string(from: record.createdAt),
             "app_version":          appVersion,
             "viewer_version":       viewerVersion,
             "device":               record.device,
             "frame_count":          record.frameCount,
+            "capture_mode":         record.captureMode     ?? "standard",
+            "lens_factor":          record.lensFactor      ?? 1.0,
+            "target_frame_count":   record.targetFrameCount ?? record.frameCount,
             "starting_frame_index": 0,
             "thumbnail_filename":   thumbnailFilename,
             "frames":               frameObjects,
