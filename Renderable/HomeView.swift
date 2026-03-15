@@ -3,7 +3,6 @@ import SwiftUI
 struct HomeView: View {
     @State private var sessions: [CaptureSessionRecord] = []
 
-    /// Static formatter — DateFormatter is expensive to allocate; one instance is shared.
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
@@ -13,53 +12,71 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if sessions.isEmpty {
-                    VStack(spacing: 16) {
-                        Spacer()
-                        Image(systemName: "camera.viewfinder")
-                            .font(.system(size: 60))
-                            .foregroundColor(.secondary)
-                        Text("No captures yet")
-                            .font(.title3.bold())
-                        Text("Tap Start Capture to scan your first room")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                        Spacer()
-                    }
-                    .padding()
-                } else {
-                    List {
-                        ForEach(sessions) { record in
-                            NavigationLink(destination: SessionDetailView(record: record)) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Room Capture")
-                                        .font(.headline)
-                                    Text("\(record.frameCount) frames · \(HomeView.dateFormatter.string(from: record.createdAt))")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        .onDelete(perform: deleteSessions)
-                    }
-                }
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-                NavigationLink(destination: CaptureSessionView()) {
-                    Label("Start Capture", systemImage: "camera.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 16)
+                VStack(spacing: 0) {
+                    if sessions.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer()
+                            Text("No captures yet")
+                                .font(.title3.bold())
+                                .foregroundColor(.white)
+                            Text("Tap Start Capture to scan your first room.")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.4))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 40)
+                            Spacer()
+                        }
+                    } else {
+                        List {
+                            ForEach(sessions) { record in
+                                NavigationLink(destination: SessionDetailView(record: record)) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Room Capture")
+                                            .font(.headline)
+                                            .foregroundColor(.white)
+                                        Text("\(record.frameCount) frames · \(HomeView.dateFormatter.string(from: record.createdAt))")
+                                            .font(.caption)
+                                            .foregroundColor(.white.opacity(0.4))
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                                .listRowBackground(Color.white.opacity(0.05))
+                            }
+                            .onDelete(perform: deleteSessions)
+                        }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                    }
+
+                    NavigationLink(destination: CaptureSessionView()) {
+                        Text("Start Capture")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color.green)
+                            .foregroundColor(.black)
+                            .cornerRadius(14)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 16)
+                    }
                 }
             }
-            .navigationTitle("Renderable")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 0) {
+                        Text("Render")
+                            .font(.headline.bold())
+                            .foregroundColor(.white)
+                        Text("able")
+                            .font(.headline.bold())
+                            .foregroundColor(.green)
+                    }
+                }
+            }
             .onAppear { sessions = LocalStorageManager.loadAllSessions() }
         }
     }

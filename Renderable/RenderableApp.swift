@@ -2,9 +2,18 @@ import SwiftUI
 
 @main
 struct RenderableApp: App {
+    @AppStorage("onboardingComplete") private var onboardingComplete = false
+
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            Group {
+                if onboardingComplete {
+                    HomeView()
+                } else {
+                    OnboardingView()
+                }
+            }
+            .preferredColorScheme(.dark)
         }
     }
 }

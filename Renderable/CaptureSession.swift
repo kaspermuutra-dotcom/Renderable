@@ -23,7 +23,10 @@ class CaptureSession: ObservableObject {
 
     /// Phase 19: pass quality from FrameQualityChecker.analyze() — defaults to nil for backward compat.
     /// Sprint B: pass heading from MotionManager.currentHeading — defaults to nil for backward compat.
+    /// Must be called from the main thread. Appends synchronously so frameCount is
+    /// correct immediately after the call — required for the review-screen trigger.
     func addFrame(_ image: UIImage, quality: FrameQuality? = nil, heading: Double? = nil) {
+        assert(Thread.isMainThread, "addFrame must be called on the main thread")
         let frame = CapturedFrame(
             image: image,
             timestamp: Date(),
@@ -31,9 +34,7 @@ class CaptureSession: ObservableObject {
             quality: quality,
             heading: heading
         )
-        DispatchQueue.main.async {
-            self.frames.append(frame)
-        }
+        frames.append(frame)
     }
 
     func reset() {

@@ -9,7 +9,9 @@ class MotionManager: ObservableObject {
     private var lastPitch: Double? = nil
 
     // Minimum rotation in degrees before next capture is allowed.
-    private let minRotationDegrees: Double = 8.0
+    // 13° encourages meaningful angular separation between frames while
+    // still allowing comfortable capture pace.
+    private let minRotationDegrees: Double = 13.0
 
     // Serial queue for all motion processing — keeps lastYaw/lastPitch access
     // off the main thread and eliminates data races with resetBaseline().
@@ -47,16 +49,26 @@ class MotionManager: ObservableObject {
             let heading: Double? = motion.heading >= 0 ? motion.heading : nil
 
             if let lastYaw = self.lastYaw, let lastPitch = self.lastPitch {
-                let rawDeltaYaw   = abs(yaw - lastYaw)
-                let rawDeltaPitch = abs(pitch - lastPitch)
-                // Wrap-corrected deltas: handles the 350°→10° boundary crossing
-                // that the magnetic north reference frame can expose.
-                let deltaYaw   = min(rawDeltaYaw,   360 - rawDeltaYaw)
-                let deltaPitch = min(rawDeltaPitch, 360 - rawDeltaPitch)
+                let rawDeltaYaw = abs(yaw - lastYaw)
+                // Wrap-correct yaw only: CMDeviceMotion.attitude.yaw ranges −180°→+180°
+                // and can cross the ±180° boundary mid-pan.
+                let deltaYaw = min(rawDeltaYaw, 360 - rawDeltaYaw)
+                // Pitch ranges −90°→+90° and never wraps — plain absolute delta is correct.
+                let deltaPitch = abs(pitch - lastPitch)
 
                 let moved     = deltaYaw > self.minRotationDegrees || deltaPitch > self.minRotationDegrees
                 let remaining = Int(self.minRotationDegrees - max(deltaYaw, deltaPitch))
-                let hint      = moved ? "" : "Rotate \(remaining)° before the next shot"
+                // Two-tier hint — no degree numbers shown to the user.
+                // Half-threshold split: first half needs a meaningful rotation cue,
+                // second half (nearly there) gets a lighter nudge.
+                let hint: String
+                if moved {
+                    hint = ""
+                } else if remaining > Int(self.minRotationDegrees) / 2 {
+                    hint = "Rotate right — keep the previous frame in view"
+                } else {
+                    hint = "Almost there — a little more"
+                }
 
                 DispatchQueue.main.async {
                     self.hasMovedEnough = moved
@@ -78,14 +90,20 @@ class MotionManager: ObservableObject {
     }
 
     /// Call this after a frame is captured to reset the rotation baseline.
-    /// Dispatched to motionQueue to keep lastYaw/lastPitch access on one thread.
+    /// Reads deviceMotion immediately at call time — not inside the queued operation —
+    /// so the baseline is stamped at the actual capture moment, not after pending
+    /// motion callbacks have already advanced the position.
     func resetBaseline() {
-        guard motionManager.isDeviceMotionAvailable else { return }
+        guard motionManager.isDeviceMotionAvailable,
+              let snapshot = motionManager.deviceMotion else { return }
+        // Capture values as local constants on the calling thread (main).
+        // CMMotionManager.deviceMotion is thread-safe for reading.
+        let yaw   = snapshot.attitude.yaw   * 180 / .pi
+        let pitch = snapshot.attitude.pitch * 180 / .pi
         motionQueue.addOperation { [weak self] in
-            guard let self,
-                  let motion = self.motionManager.deviceMotion else { return }
-            self.lastYaw   = motion.attitude.yaw   * 180 / .pi
-            self.lastPitch = motion.attitude.pitch * 180 / .pi
+            guard let self else { return }
+            self.lastYaw   = yaw
+            self.lastPitch = pitch
             DispatchQueue.main.async { self.hasMovedEnough = false }
         }
     }

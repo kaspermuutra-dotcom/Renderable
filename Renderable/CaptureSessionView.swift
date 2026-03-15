@@ -11,16 +11,16 @@ struct CaptureSessionView: View {
     @State private var showWarning = false
 
     let instructions = [
-        "Point at the front wall",
-        "Slowly pan right — 40% overlap",
-        "Capture the right corner",
-        "Pan along the right wall",
-        "Capture the back-right corner",
-        "Pan along the back wall",
-        "Capture the back-left corner",
-        "Pan along the left wall",
-        "Capture the left corner",
-        "Last shot — back to start"
+        "Face the starting wall — this is your reference point",
+        "Rotate slowly right — keep the last frame partly in view",
+        "Face the right corner",
+        "Continue right along the wall",
+        "Face the back-right corner",
+        "Continue right along the back wall",
+        "Face the back-left corner",
+        "Continue right along the left wall",
+        "Face the left corner",
+        "Final frame — return to face the starting wall"
     ]
 
     var currentInstruction: String {
@@ -89,7 +89,7 @@ struct CaptureSessionView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Color.blue.opacity(0.8))
+                        .background(Color.white.opacity(0.15))
                         .cornerRadius(10)
                         .transition(.opacity)
                         .padding(.bottom, 8)
@@ -108,45 +108,74 @@ struct CaptureSessionView: View {
                         .padding(.bottom, 8)
                 }
 
-                // ── Circular progress + capture button ──
-                ZStack {
-                    // Background ring
-                    Circle()
-                        .stroke(Color.white.opacity(0.15), lineWidth: 4)
-                        .frame(width: 92, height: 92)
+                // ── Circular progress + capture button + compass ──
+                // HStack layout: fixed-width left placeholder mirrors compass width
+                // so the shutter ring stays horizontally centred on all screen sizes.
+                HStack(alignment: .center, spacing: 0) {
+                    Spacer().frame(width: 68) // mirrors compass (44) + trailing gap (24)
 
-                    // Progress ring
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                        .frame(width: 92, height: 92)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.4), value: progress)
+                    Spacer()
 
-                    // Cooldown arc
-                    if !camera.isReady {
+                    ZStack {
+                        // Background ring
                         Circle()
-                            .trim(from: 0, to: 0.75)
-                            .stroke(Color.white.opacity(0.5), lineWidth: 3)
-                            .frame(width: 80, height: 80)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 4)
+                            .frame(width: 92, height: 92)
+
+                        // Capture arc segment ticks — one per target frame.
+                        // Each tick fills green as that frame is captured,
+                        // giving a clear "completing a circle" visual.
+                        ForEach(0..<captureSession.targetFrameCount, id: \.self) { i in
+                            let angle = Double(i) / Double(captureSession.targetFrameCount) * 360.0 - 90.0
+                            Rectangle()
+                                .fill(i < captureSession.frameCount
+                                      ? Color.green
+                                      : Color.white.opacity(0.2))
+                                .frame(width: 2, height: 8)
+                                .offset(y: -54)
+                                .rotationEffect(.degrees(angle))
+                        }
+
+                        // Progress ring fill
+                        Circle()
+                            .trim(from: 0, to: progress)
+                            .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                            .frame(width: 92, height: 92)
                             .rotationEffect(.degrees(-90))
-                            .animation(.linear(duration: 1.2), value: camera.isReady)
+                            .animation(.spring(response: 0.4), value: progress)
+
+                        // Cooldown arc
+                        if !camera.isReady {
+                            Circle()
+                                .trim(from: 0, to: 0.75)
+                                .stroke(Color.white.opacity(0.5), lineWidth: 3)
+                                .frame(width: 80, height: 80)
+                                .rotationEffect(.degrees(-90))
+                                .animation(.linear(duration: 1.2), value: camera.isReady)
+                        }
+
+                        // Shutter button
+                        Circle()
+                            .fill(captureDisabled ? Color.white.opacity(0.35) : Color.white)
+                            .frame(width: 68, height: 68)
+                            .scaleEffect(camera.isReady && motion.hasMovedEnough ? 1.0 : 0.88)
+                            .animation(.spring(response: 0.25), value: captureDisabled)
+
+                        // Frame count in centre
+                        Text("\(captureSession.frameCount)/\(captureSession.targetFrameCount)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(captureDisabled ? Color.black.opacity(0.3) : Color.black.opacity(0.6))
+                    }
+                    .onTapGesture {
+                        if !captureDisabled { takePhoto() }
                     }
 
-                    // Shutter button
-                    Circle()
-                        .fill(captureDisabled ? Color.white.opacity(0.35) : Color.white)
-                        .frame(width: 68, height: 68)
-                        .scaleEffect(camera.isReady && motion.hasMovedEnough ? 1.0 : 0.88)
-                        .animation(.spring(response: 0.25), value: captureDisabled)
+                    Spacer()
 
-                    // Frame count in center
-                    Text("\(captureSession.frameCount)/\(captureSession.targetFrameCount)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(captureDisabled ? Color.black.opacity(0.3) : Color.black.opacity(0.6))
-                }
-                .onTapGesture {
-                    if !captureDisabled { takePhoto() }
+                    // Compass HUD — to the right of the shutter
+                    CompassHUDView(heading: motion.currentHeading)
+                        .frame(width: 44)
+                        .padding(.trailing, 24)
                 }
                 .padding(.bottom, 40)
                 .padding(.top, 8)
@@ -168,17 +197,11 @@ struct CaptureSessionView: View {
                     }
                 }
 
-                // Add frame with quality scores and compass heading attached.
-                // motion.currentHeading is nil when magnetometer data is unreliable.
+                // addFrame is now synchronous — frameCount is correct immediately after.
                 captureSession.addFrame(image, quality: quality, heading: motion.currentHeading)
                 motion.resetBaseline()
                 triggerFlash()
-
-                if captureSession.frameCount >= captureSession.targetFrameCount {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        showReview = true
-                    }
-                }
+                // Review transition is handled by onChange(of: captureSession.frameCount) below.
             }
         }
         .onDisappear {
@@ -187,6 +210,14 @@ struct CaptureSessionView: View {
         }
         .navigationDestination(isPresented: $showReview) {
             CaptureReviewView(captureSession: captureSession)
+        }
+        // Belt-and-suspenders: fires reactively when frames.count changes,
+        // regardless of async dispatch ordering in the capture callback.
+        .onChange(of: captureSession.frameCount) { count in
+            guard count >= captureSession.targetFrameCount, !showReview else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                showReview = true
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -230,5 +261,41 @@ struct GridOverlay: View {
             }
             .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
         }
+    }
+}
+
+// MARK: - Compass HUD
+
+/// Minimal compass indicator that shows cardinal direction and numeric heading.
+/// Reads from MotionManager.currentHeading (CMDeviceMotion, magnetic north reference).
+/// Displays "—" when heading is unavailable (magnetometer unreliable or uncalibrated).
+struct CompassHUDView: View {
+    let heading: Double?
+
+    private var cardinal: String {
+        guard let h = heading else { return "—" }
+        switch h {
+        case 337.5...360, 0..<22.5:  return "N"
+        case 22.5..<67.5:            return "NE"
+        case 67.5..<112.5:           return "E"
+        case 112.5..<157.5:          return "SE"
+        case 157.5..<202.5:          return "S"
+        case 202.5..<247.5:          return "SW"
+        case 247.5..<292.5:          return "W"
+        case 292.5..<337.5:          return "NW"
+        default:                      return "—"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(cardinal)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white)
+            Text(heading.map { "\(Int($0))°" } ?? "—")
+                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .frame(width: 44)
     }
 }
