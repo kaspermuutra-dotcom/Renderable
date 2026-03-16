@@ -34,6 +34,27 @@ struct LocalStorageManager {
         let headings: [Double?] = session.frames.map { $0.heading }
         let hasAnyHeading = headings.contains { $0 != nil }
 
+        // Stage 4A: yaw and pitch follow the same map / hasAny pattern.
+        let yaws: [Double?] = session.frames.map { $0.yaw }
+        let hasAnyYaw = yaws.contains { $0 != nil }
+
+        let pitches: [Double?] = session.frames.map { $0.pitch }
+        let hasAnyPitch = pitches.contains { $0 != nil }
+
+        // Stage 4A: timestamps are always non-optional in CapturedFrame — capture all of them.
+        // Stored as the outer optional so pre-4A sessions decode cleanly (missing key → nil).
+        let timestamps: [Date] = session.frames.map { $0.timestamp }
+
+        // Stage 4B: roll, rotation rate, and acceleration follow the same map / hasAny pattern.
+        let rolls: [Double?] = session.frames.map { $0.roll }
+        let hasAnyRoll = rolls.contains { $0 != nil }
+
+        let rotationRates: [Double?] = session.frames.map { $0.captureRotationRate }
+        let hasAnyRotationRate = rotationRates.contains { $0 != nil }
+
+        let accelerations: [Double?] = session.frames.map { $0.captureAcceleration }
+        let hasAnyAcceleration = accelerations.contains { $0 != nil }
+
         let record = CaptureSessionRecord(
             id: session.sessionID,
             createdAt: Date(),
@@ -45,7 +66,15 @@ struct LocalStorageManager {
             // Stage 3A: persist the capture mode so the record is self-describing.
             captureMode:      session.captureMode.rawValue,
             lensFactor:       session.captureMode.lensFactor,
-            targetFrameCount: session.captureMode.targetFrameCount
+            targetFrameCount: session.captureMode.targetFrameCount,
+            // Stage 4A: orientation and timing arrays.
+            frameYaws:        hasAnyYaw   ? yaws    : nil,
+            framePitches:     hasAnyPitch ? pitches : nil,
+            frameTimestamps:  timestamps.isEmpty ? nil : timestamps,
+            // Stage 4B: roll and capture-moment stability arrays.
+            frameRolls:                 hasAnyRoll          ? rolls         : nil,
+            frameCaptureRotationRates:  hasAnyRotationRate  ? rotationRates : nil,
+            frameCaptureAccelerations:  hasAnyAcceleration  ? accelerations : nil
         )
 
         if let json = try? JSONEncoder().encode(record) {

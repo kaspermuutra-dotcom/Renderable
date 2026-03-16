@@ -24,4 +24,28 @@ struct CaptureSessionRecord: Identifiable, Codable {
     /// Distinct from frameCount, which is the actual number of frames captured.
     /// nil for sessions saved before Stage 3A.
     let targetFrameCount: Int?
+    /// Stage 4A: raw attitude yaw per frame (degrees, −180→+180), index-aligned with frames.
+    /// Each element is optional (nil = motion data unavailable for that frame).
+    /// The outer optional is nil for sessions saved before Stage 4A.
+    let frameYaws: [Double?]?
+    /// Stage 4A: raw attitude pitch per frame (degrees, −90→+90), index-aligned with frames.
+    /// Positive = camera tilting upward. nil elements indicate unavailable readings.
+    /// The outer optional is nil for sessions saved before Stage 4A.
+    let framePitches: [Double?]?
+    /// Stage 4A: capture timestamp per frame, index-aligned with frames.
+    /// Populated from CapturedFrame.timestamp at save time.
+    /// The outer optional is nil for sessions saved before Stage 4A.
+    let frameTimestamps: [Date]?
+    /// Stage 4B: raw attitude roll per frame (degrees, −180→+180), index-aligned with frames.
+    /// Near 0° = device held upright. nil elements indicate unavailable readings.
+    /// The outer optional is nil for sessions saved before Stage 4B.
+    let frameRolls: [Double?]?
+    /// Stage 4B: magnitude of CMDeviceMotion.rotationRate at shutter time (rad/s), per frame.
+    /// Measures angular velocity at the instant of capture. Lower = steadier shot.
+    /// nil elements indicate motion data was unavailable. Outer nil = pre-Stage 4B session.
+    let frameCaptureRotationRates: [Double?]?
+    /// Stage 4B: magnitude of CMDeviceMotion.userAcceleration at shutter time (g), per frame.
+    /// Measures hand shake at the instant of capture. Lower = steadier shot.
+    /// nil elements indicate motion data was unavailable. Outer nil = pre-Stage 4B session.
+    let frameCaptureAccelerations: [Double?]?
 }

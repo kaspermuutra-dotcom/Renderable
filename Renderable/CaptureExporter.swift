@@ -36,6 +36,44 @@ struct CaptureExporter {
             try? thumbData.write(to: thumbPath)
         }
 
+        // ── Stage 4A: pre-compute per-frame delta yaw ────────────────────────
+        // delta_yaw[i] = wrap-corrected angular distance between frame i-1 and frame i.
+        // delta_yaw[0] is always nil (no predecessor frame).
+        // Wrap correction mirrors MotionManager: yaw ranges −180°→+180°, can cross boundary.
+        var deltaYaws: [Double?] = Array(repeating: nil, count: record.frameCount)
+        if let yaws = record.frameYaws {
+            for i in 1..<record.frameCount {
+                if i < yaws.count,
+                   let curr = yaws[i],
+                   let prev = (i - 1 < yaws.count ? yaws[i - 1] : nil) {
+                    let raw = abs(curr - prev)
+                    deltaYaws[i] = min(raw, 360 - raw)
+                }
+            }
+        }
+
+        // ── Stage 4A: summary fields — computed only when source data is present ─
+        let totalRotation: Double? = {
+            guard record.frameYaws != nil else { return nil }
+            let sum = deltaYaws.compactMap { $0 }.reduce(0, +)
+            return sum > 0 ? sum : nil
+        }()
+
+        let scanDuration: Double? = {
+            guard let ts = record.frameTimestamps, ts.count >= 2 else { return nil }
+            return ts[ts.count - 1].timeIntervalSince(ts[0])
+        }()
+
+        let pitchRange: Double? = {
+            guard let pitches = record.framePitches else { return nil }
+            let valid = pitches.compactMap { $0 }
+            guard valid.count >= 2, let lo = valid.min(), let hi = valid.max() else { return nil }
+            return hi - lo
+        }()
+
+        // ISO8601 formatter reused across all per-frame timestamp strings.
+        let iso = ISO8601DateFormatter()
+
         // ── Frame objects with nav graph + Phase 19 quality metadata ─────────
         let frameObjects: [[String: Any]] = (0..<record.frameCount).map { i in
             var neighbors: [String: Int] = [:]
@@ -62,6 +100,33 @@ struct CaptureExporter {
             // Same double optional-bind: outer nil = pre-Sprint B session; inner nil = magnetometer was unreliable.
             if let headings = record.frameHeadings, i < headings.count, let h = headings[i] {
                 obj["heading"] = h
+            }
+
+            // Stage 4A: yaw, pitch, timestamp, delta_yaw.
+            // Double optional-bind for yaw/pitch (inner nil = motion unavailable for that frame).
+            if let yaws = record.frameYaws, i < yaws.count, let y = yaws[i] {
+                obj["yaw"] = y
+            }
+            if let pitches = record.framePitches, i < pitches.count, let p = pitches[i] {
+                obj["pitch"] = p
+            }
+            if let timestamps = record.frameTimestamps, i < timestamps.count {
+                obj["timestamp"] = iso.string(from: timestamps[i])
+            }
+            // delta_yaw: nil for frame 0 (no predecessor) and any frame whose yaw was unavailable.
+            if let d = deltaYaws[i] {
+                obj["delta_yaw"] = d
+            }
+
+            // Stage 4B: roll and capture-moment stability values.
+            if let rolls = record.frameRolls, i < rolls.count, let r = rolls[i] {
+                obj["roll"] = r
+            }
+            if let rates = record.frameCaptureRotationRates, i < rates.count, let rr = rates[i] {
+                obj["rotation_rate"] = rr
+            }
+            if let accels = record.frameCaptureAccelerations, i < accels.count, let ac = accels[i] {
+                obj["acceleration"] = ac
             }
 
             return obj
@@ -100,6 +165,12 @@ struct CaptureExporter {
             "frames":               frameObjects,
             "listing":              listing
         ]
+
+        // Stage 4A: summary orientation fields — omitted entirely for pre-4A sessions
+        // so the server can distinguish "not captured" from "zero".
+        if let total = totalRotation    { manifest["total_rotation_degrees"] = total }
+        if let dur   = scanDuration     { manifest["scan_duration_seconds"]  = dur   }
+        if let pr    = pitchRange       { manifest["pitch_range_degrees"]    = pr    }
 
         if let manifestData = try? JSONSerialization.data(
             withJSONObject: manifest,

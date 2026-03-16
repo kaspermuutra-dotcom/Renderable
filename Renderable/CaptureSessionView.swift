@@ -195,8 +195,25 @@ struct CaptureSessionView: View {
                     }
                 }
 
+                // Stage 4B: read rotation rate and acceleration synchronously at shutter time,
+                // before resetBaseline() advances the motion state. Same thread-safe snapshot
+                // pattern used by resetBaseline() itself.
+                let stability = motion.readCaptureStability()
+
                 // addFrame is now synchronous — frameCount is correct immediately after.
-                captureSession.addFrame(image, quality: quality, heading: motion.currentHeading)
+                // Stage 4A: yaw and pitch are read from MotionManager.currentYaw/currentPitch,
+                // which are updated on main by the same motion callback that publishes heading.
+                // Stage 4B: roll and stability values passed alongside yaw/pitch.
+                captureSession.addFrame(
+                    image,
+                    quality:             quality,
+                    heading:             motion.currentHeading,
+                    yaw:                 motion.currentYaw,
+                    pitch:               motion.currentPitch,
+                    roll:                motion.currentRoll,
+                    captureRotationRate: stability.rotationRate,
+                    captureAcceleration: stability.acceleration
+                )
                 motion.resetBaseline()
                 triggerFlash()
                 // Review transition is handled by onChange(of: captureSession.frameCount) below.

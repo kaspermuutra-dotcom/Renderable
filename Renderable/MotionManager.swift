@@ -27,6 +27,15 @@ class MotionManager: ObservableObject {
     /// Compass heading in degrees relative to magnetic north (0–360).
     /// nil when the magnetometer cannot provide a reliable reading (CMDeviceMotion returns -1).
     @Published var currentHeading: Double? = nil
+    /// Raw yaw from CMDeviceMotion.attitude at the latest motion callback (degrees, −180→+180).
+    /// Stamped on the main thread at capture time for use as per-frame orientation metadata.
+    @Published var currentYaw: Double? = nil
+    /// Raw pitch from CMDeviceMotion.attitude at the latest motion callback (degrees, −90→+90).
+    /// Positive = nose up, negative = nose down.
+    @Published var currentPitch: Double? = nil
+    /// Raw roll from CMDeviceMotion.attitude at the latest motion callback (degrees, −180→+180).
+    /// Near 0° = device held upright in portrait. Positive = clockwise lean.
+    @Published var currentRoll: Double? = nil
 
     func start() {
         guard motionManager.isDeviceMotionAvailable else {
@@ -45,6 +54,7 @@ class MotionManager: ObservableObject {
             guard let self, let motion else { return }
             let yaw   = motion.attitude.yaw   * 180 / .pi
             let pitch = motion.attitude.pitch * 180 / .pi
+            let roll  = motion.attitude.roll  * 180 / .pi
             // CMDeviceMotion.heading is -1 when the magnetometer reading is unreliable.
             let heading: Double? = motion.heading >= 0 ? motion.heading : nil
 
@@ -74,12 +84,18 @@ class MotionManager: ObservableObject {
                     self.hasMovedEnough = moved
                     self.rotationHint   = hint
                     self.currentHeading = heading
+                    self.currentYaw     = yaw
+                    self.currentPitch   = pitch
+                    self.currentRoll    = roll
                 }
             } else {
                 // First reading — always allow first capture.
                 DispatchQueue.main.async {
                     self.hasMovedEnough = true
                     self.currentHeading = heading
+                    self.currentYaw     = yaw
+                    self.currentPitch   = pitch
+                    self.currentRoll    = roll
                 }
             }
         }
@@ -106,5 +122,24 @@ class MotionManager: ObservableObject {
             self.lastPitch = pitch
             DispatchQueue.main.async { self.hasMovedEnough = false }
         }
+    }
+
+    /// Reads rotation rate and user acceleration magnitudes synchronously at call time.
+    /// Must be called on the main thread immediately before addFrame() so the snapshot
+    /// matches the actual shutter moment rather than a queued callback's position.
+    /// Returns nil for each value when device motion is unavailable.
+    ///
+    /// rotationRate — magnitude of CMDeviceMotion.rotationRate in rad/s.
+    ///   Measures angular velocity across all axes. High = camera was rotating at capture.
+    /// acceleration — magnitude of CMDeviceMotion.userAcceleration in g units (gravity removed).
+    ///   Measures linear hand shake at capture. High = physical jitter at shutter time.
+    func readCaptureStability() -> (rotationRate: Double?, acceleration: Double?) {
+        guard motionManager.isDeviceMotionAvailable,
+              let snapshot = motionManager.deviceMotion else { return (nil, nil) }
+        let r  = snapshot.rotationRate
+        let rm = sqrt(r.x * r.x + r.y * r.y + r.z * r.z)
+        let a  = snapshot.userAcceleration
+        let am = sqrt(a.x * a.x + a.y * a.y + a.z * a.z)
+        return (rm, am)
     }
 }
