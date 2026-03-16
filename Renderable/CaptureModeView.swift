@@ -42,6 +42,8 @@ struct CaptureModeView: View {
                 Spacer()
 
                 // ── Continue ──
+                // Padding is outside the NavigationLink label so the hit target
+                // matches the visible button area exactly.
                 NavigationLink(destination: CaptureSessionView(mode: selectedMode)) {
                     Text("Continue")
                         .font(.headline)
@@ -50,9 +52,9 @@ struct CaptureModeView: View {
                         .background(Color.green)
                         .foregroundColor(.black)
                         .cornerRadius(14)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 32)
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 32)
             }
         }
         .navigationBarTitleDisplayMode(.inline)

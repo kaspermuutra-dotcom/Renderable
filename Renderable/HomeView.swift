@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var sessions: [CaptureSessionRecord] = []
+    @State private var showInstructions = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -76,6 +77,25 @@ struct HomeView: View {
                             .foregroundColor(.green)
                     }
                 }
+                // Scanning guidance — always accessible after onboarding is complete.
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showInstructions = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
+            }
+            .sheet(isPresented: $showInstructions) {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    InstructionsPage(
+                        onComplete: { showInstructions = false },
+                        buttonLabel: "Got it"
+                    )
+                }
+                .preferredColorScheme(.dark)
             }
             .onAppear { sessions = LocalStorageManager.loadAllSessions() }
         }

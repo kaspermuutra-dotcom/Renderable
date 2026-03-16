@@ -13,6 +13,8 @@ struct RenderableApp: App {
                     OnboardingView()
                 }
             }
+            // Dissolve between OnboardingView and HomeView instead of a hard cut.
+            .animation(.easeInOut(duration: 0.35), value: onboardingComplete)
             .preferredColorScheme(.dark)
         }
     }

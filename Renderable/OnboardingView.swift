@@ -72,7 +72,7 @@ private struct WelcomePage: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.white)
+                    .background(Color.green)
                     .foregroundColor(.black)
                     .cornerRadius(14)
             }
@@ -83,9 +83,13 @@ private struct WelcomePage: View {
 }
 
 // MARK: - Page 2: Instructions
+// Internal (not private) so HomeView can present this page standalone as a sheet.
 
-private struct InstructionsPage: View {
+struct InstructionsPage: View {
     let onComplete: () -> Void
+    /// Label for the primary button. Defaults to "Start Scanning" for the onboarding context;
+    /// pass "Got it" when presenting as a revisit sheet from HomeView.
+    var buttonLabel: String = "Start Scanning"
 
     private let items: [String] = [
         "Make sure the room is tidy",
@@ -124,7 +128,7 @@ private struct InstructionsPage: View {
             Spacer()
 
             Button(action: onComplete) {
-                Text("Start Scanning")
+                Text(buttonLabel)
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
