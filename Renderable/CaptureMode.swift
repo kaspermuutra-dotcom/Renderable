@@ -45,8 +45,8 @@ enum CaptureMode: String, CaseIterable {
     /// Total frames required to complete a session in this mode.
     var targetFrameCount: Int {
         switch self {
-        case .standard: return 20
-        case .wide:     return 12
+        case .standard: return 32
+        case .wide:     return 40
         }
     }
 

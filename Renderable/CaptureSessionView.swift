@@ -11,6 +11,10 @@ struct CaptureSessionView: View {
     @State private var flash = false
     @State private var warningMessage: String? = nil
     @State private var showWarning = false
+    /// Ghost frame overlay: the last captured JPEG shown at reduced opacity
+    /// over the live feed so the user can maintain consistent overlap.
+    /// nil before the first capture and after the session completes.
+    @State private var lastCapturedImage: UIImage? = nil
 
     /// Default .standard so previews and any existing call site with no argument still compile.
     init(mode: CaptureMode = .standard) {
@@ -55,6 +59,19 @@ struct CaptureSessionView: View {
             // Grid
             GridOverlay()
                 .ignoresSafeArea()
+
+            // Ghost frame overlay — last captured JPEG at 30% opacity.
+            // Positioned above the camera feed and grid but below all controls.
+            // allowsHitTesting(false) ensures it never blocks shutter taps.
+            if let ghost = lastCapturedImage {
+                Image(uiImage: ghost)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+                    .opacity(0.30)
+                    .allowsHitTesting(false)
+                    .animation(.easeOut(duration: 0.25), value: lastCapturedImage)
+            }
 
             VStack(spacing: 0) {
 
@@ -216,6 +233,7 @@ struct CaptureSessionView: View {
                 )
                 motion.resetBaseline()
                 triggerFlash()
+                lastCapturedImage = image
                 // Review transition is handled by onChange(of: captureSession.frameCount) below.
             }
         }
@@ -230,6 +248,7 @@ struct CaptureSessionView: View {
         // regardless of async dispatch ordering in the capture callback.
         .onChange(of: captureSession.frameCount) { count in
             guard count >= captureSession.targetFrameCount, !showReview else { return }
+            lastCapturedImage = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 showReview = true
             }

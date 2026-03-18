@@ -9,9 +9,9 @@ class MotionManager: ObservableObject {
     private var lastPitch: Double? = nil
 
     // Minimum rotation in degrees before next capture is allowed.
-    // 13° encourages meaningful angular separation between frames while
-    // still allowing comfortable capture pace.
-    private let minRotationDegrees: Double = 13.0
+    // 9° gives enough angular separation for smooth rendering while
+    // still allowing a comfortable capture pace.
+    private let minRotationDegrees: Double = 9.0
 
     // Serial queue for all motion processing — keeps lastYaw/lastPitch access
     // off the main thread and eliminates data races with resetBaseline().
