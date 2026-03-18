@@ -10,11 +10,15 @@ struct SessionDetailView: View {
     /// Loaded once in onAppear to avoid synchronous disk I/O on every body evaluation.
     @State private var images: [UIImage] = []
 
-    var formattedDate: String {
+    private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
         f.timeStyle = .short
-        return f.string(from: record.createdAt)
+        return f
+    }()
+
+    var formattedDate: String {
+        SessionDetailView.dateFormatter.string(from: record.createdAt)
     }
 
     var body: some View {

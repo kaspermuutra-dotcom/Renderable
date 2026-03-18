@@ -8,7 +8,10 @@ struct CaptureExporter {
         case zipFailed
     }
 
-    static let appVersion    = "1.0"
+    static var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+    // Viewer schema version — update manually on breaking viewer changes
     static let viewerVersion = "1.0"
 
     static func export(record: CaptureSessionRecord) throws -> URL {
@@ -52,6 +55,23 @@ struct CaptureExporter {
             }
         }
 
+        // ── Stage 5: cumulative angle from start ─────────────────────────────
+        // angleFromStart[i] = total rotation in degrees from frame 0 to frame i.
+        // Frame 0 is always 0.0. A nil deltaYaw contributes 0.0 — conservative,
+        // never fabricates arc position for frames with unavailable yaw data.
+        // cumulativeAngle is kept as a var so the minimap can reference its final
+        // value (total arc swept) without recomputing the sum.
+        var angleFromStart: [Double] = []
+        var cumulativeAngle: Double = 0.0
+        for i in 0..<record.frameCount {
+            if i == 0 {
+                angleFromStart.append(0.0)
+            } else {
+                cumulativeAngle += deltaYaws[i] ?? 0.0
+                angleFromStart.append(cumulativeAngle)
+            }
+        }
+
         // ── Stage 4A: summary fields — computed only when source data is present ─
         let totalRotation: Double? = {
             guard record.frameYaws != nil else { return nil }
@@ -67,6 +87,13 @@ struct CaptureExporter {
         let pitchRange: Double? = {
             guard let pitches = record.framePitches else { return nil }
             let valid = pitches.compactMap { $0 }
+            guard valid.count >= 2, let lo = valid.min(), let hi = valid.max() else { return nil }
+            return hi - lo
+        }()
+
+        let rollRange: Double? = {
+            guard let rolls = record.frameRolls else { return nil }
+            let valid = rolls.compactMap { $0 }
             guard valid.count >= 2, let lo = valid.min(), let hi = valid.max() else { return nil }
             return hi - lo
         }()
@@ -129,6 +156,15 @@ struct CaptureExporter {
                 obj["acceleration"] = ac
             }
 
+            // Stage 5: polar layout — always present, never conditional.
+            // angle_from_start: cumulative rotation in degrees from frame 0.
+            // polar_x / polar_y: unit-circle position derived from that angle.
+            let angleDeg = angleFromStart[i]
+            let angleRad = angleDeg * .pi / 180.0
+            obj["angle_from_start"] = angleDeg
+            obj["polar_x"]          = cos(angleRad)
+            obj["polar_y"]          = sin(angleRad)
+
             return obj
         }
 
@@ -171,6 +207,27 @@ struct CaptureExporter {
         if let total = totalRotation    { manifest["total_rotation_degrees"] = total }
         if let dur   = scanDuration     { manifest["scan_duration_seconds"]  = dur   }
         if let pr    = pitchRange       { manifest["pitch_range_degrees"]    = pr    }
+        if let rr    = rollRange        { manifest["roll_range_degrees"]     = rr    }
+
+        // ── Stage 5: minimap payload ──────────────────────────────────────────
+        // Compact spatial index of all frames for viewer minimap rendering.
+        // Computed from angleFromStart (already built above) so no second pass
+        // over frames is needed. total_arc is cumulativeAngle — the same running
+        // sum; no recomputation required.
+        let minimapFrames = angleFromStart.enumerated().map { (i, angle) in
+            return [
+                "index":       i,
+                "angle":       angle,
+                "polar_x":     cos(angle * .pi / 180.0),
+                "polar_y":     sin(angle * .pi / 180.0),
+                "has_heading": (record.frameHeadings?[i] != nil) as Bool
+            ] as [String: Any]
+        }
+        manifest["minimap"] = [
+            "frame_count": record.frameCount,
+            "frames":      minimapFrames,
+            "total_arc":   cumulativeAngle
+        ] as [String: Any]
 
         if let manifestData = try? JSONSerialization.data(
             withJSONObject: manifest,
@@ -181,6 +238,11 @@ struct CaptureExporter {
             print("✅ manifest.json written — \(record.frameCount) frames")
         }
 
+        // LEGACY: session.json is a pre-Stage 4 export format containing
+        // only frame filenames and basic session metadata. It is preserved
+        // for server backward compatibility. Once confirmed the server no
+        // longer reads it, this block can be removed. manifest.json is the
+        // authoritative source of all spatial and quality data.
         // ── Legacy session.json ───────────────────────────────────────────────
         let legacyManifest = SessionExportManifest(
             sessionID:  record.id.uuidString,

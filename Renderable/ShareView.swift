@@ -91,10 +91,4 @@ struct ShareView: View {
         copied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
     }
-}//
-//  ShareView.swift
-//  Renderable
-//
-//  Created by Kasper Muutra on 12.03.2026.
-//
-
+}
