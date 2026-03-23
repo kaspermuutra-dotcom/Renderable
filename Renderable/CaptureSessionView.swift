@@ -15,6 +15,12 @@ struct CaptureSessionView: View {
     /// over the live feed so the user can maintain consistent overlap.
     /// nil before the first capture and after the session completes.
     @State private var lastCapturedImage: UIImage? = nil
+    /// When true, frames are captured automatically once hasMovedEnough flips.
+    /// The user toggles this with the Auto/Manual button; defaults to manual.
+    @State private var autoCaptureEnabled: Bool = false
+    /// Drives the subtle auto-capture flash overlay (max 0.08 opacity).
+    /// Separate from the manual shutter flash so the two never conflict.
+    @State private var captureFlash: Bool = false
 
     /// Default .standard so previews and any existing call site with no argument still compile.
     init(mode: CaptureMode = .standard) {
@@ -71,6 +77,52 @@ struct CaptureSessionView: View {
                     .opacity(0.30)
                     .allowsHitTesting(false)
                     .animation(.easeOut(duration: 0.25), value: lastCapturedImage)
+            }
+
+            // Auto-capture feedback flash — max 0.08 opacity, never blinding.
+            // Separate from the manual shutter flash (full white).
+            // allowsHitTesting(false) ensures it never intercepts touches.
+            Color.white
+                .opacity(captureFlash ? 0.08 : 0.0)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .animation(.easeInOut(duration: 0.15), value: captureFlash)
+
+            // Auto-capture toggle — top-left, inside the ZStack so it never
+            // affects the layout of the controls VStack below.
+            VStack {
+                HStack {
+                    Button(action: { autoCaptureEnabled.toggle() }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: autoCaptureEnabled
+                                ? "record.circle.fill"
+                                : "record.circle")
+                                .font(.system(size: 14))
+                            Text(autoCaptureEnabled ? "Auto" : "Manual")
+                                .font(.system(size: 11, weight: .medium))
+                                .kerning(0.5)
+                        }
+                        .foregroundColor(autoCaptureEnabled
+                            ? Color(red: 0.24, green: 0.81, blue: 0.56)
+                            : Color.white.opacity(0.50))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color.black.opacity(0.45))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(
+                                autoCaptureEnabled
+                                    ? Color(red: 0.24, green: 0.81, blue: 0.56).opacity(0.35)
+                                    : Color.white.opacity(0.10),
+                                lineWidth: 1
+                            )
+                        )
+                    }
+                    .padding(.top, 16)
+                    .padding(.leading, 16)
+                    Spacer()
+                }
+                Spacer()
             }
 
             VStack(spacing: 0) {
@@ -273,6 +325,28 @@ struct CaptureSessionView: View {
             lastCapturedImage = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 showReview = true
+            }
+        }
+        // Auto-capture: fires when motion gate opens. All five conditions must pass.
+        // The 0.35s stabilisation delay lets the device settle from rotation before
+        // the shutter fires — reduces blur caused by residual rotational momentum.
+        .onChange(of: motion.hasMovedEnough) { newValue in
+            guard autoCaptureEnabled,
+                  newValue,
+                  !captureDisabled,
+                  camera.isReady,
+                  captureSession.frameCount < captureSession.targetFrameCount
+            else { return }
+            withAnimation(.easeIn(duration: 0.12)) {
+                captureFlash = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                withAnimation(.easeOut(duration: 0.20)) {
+                    captureFlash = false
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                takePhoto()
             }
         }
         .navigationBarTitleDisplayMode(.inline)
