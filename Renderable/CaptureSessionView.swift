@@ -75,6 +75,24 @@ struct CaptureSessionView: View {
 
             VStack(spacing: 0) {
 
+                // ── Wordmark ──
+                HStack {
+                    Spacer()
+                    HStack(spacing: 0) {
+                        Text("Render")
+                            .font(.system(size: 13, weight: .semibold))
+                            .kerning(2.0)
+                            .foregroundColor(.white.opacity(0.90))
+                        Text("able")
+                            .font(.system(size: 13, weight: .semibold))
+                            .kerning(2.0)
+                            .foregroundColor(Color(red: 0.24, green: 0.81, blue: 0.56))
+                    }
+                    .textCase(.uppercase)
+                    Spacer()
+                }
+                .padding(.top, 16)
+
                 // ── Top bar ──
                 VStack(spacing: 4) {
                     Text(currentInstruction)
@@ -100,12 +118,16 @@ struct CaptureSessionView: View {
                 // ── Motion gate hint ──
                 if !motion.hasMovedEnough && captureSession.frameCount > 0 {
                     Text(motion.rotationHint.isEmpty ? "Move the camera to continue" : motion.rotationHint)
-                        .font(.caption.bold())
-                        .foregroundColor(.white)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.90))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
-                        .background(Color.white.opacity(0.15))
-                        .cornerRadius(10)
+                        .background(.black.opacity(0.50))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                        )
                         .transition(.opacity)
                         .padding(.bottom, 8)
                 }
@@ -144,8 +166,8 @@ struct CaptureSessionView: View {
                             let angle = Double(i) / Double(captureSession.targetFrameCount) * 360.0 - 90.0
                             Rectangle()
                                 .fill(i < captureSession.frameCount
-                                      ? Color.green
-                                      : Color.white.opacity(0.2))
+                                      ? Color.white.opacity(0.80)
+                                      : Color.white.opacity(0.12))
                                 .frame(width: 2, height: 8)
                                 .offset(y: -54)
                                 .rotationEffect(.degrees(angle))
@@ -154,7 +176,7 @@ struct CaptureSessionView: View {
                         // Progress ring fill
                         Circle()
                             .trim(from: 0, to: progress)
-                            .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                            .stroke(Color(red: 0.24, green: 0.81, blue: 0.56).opacity(0.70), style: StrokeStyle(lineWidth: 4, lineCap: .round))
                             .frame(width: 92, height: 92)
                             .rotationEffect(.degrees(-90))
                             .animation(.spring(response: 0.4), value: progress)
@@ -163,7 +185,7 @@ struct CaptureSessionView: View {
                         if !camera.isReady {
                             Circle()
                                 .trim(from: 0, to: 0.75)
-                                .stroke(Color.white.opacity(0.5), lineWidth: 3)
+                                .stroke(Color.white.opacity(0.20), lineWidth: 3)
                                 .frame(width: 80, height: 80)
                                 .rotationEffect(.degrees(-90))
                                 .animation(.linear(duration: 1.2), value: camera.isReady)
